@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>한글날 카드뉴스 모아보기</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet">
+    
+    <style>
+        /* 페이지 전체 스타일 */
+        body {
+            /* 글꼴은 Gowun Dodum 유지 */
+            font-family: 'Gowun Dodum', 'Malgun Gothic', '맑은 고딕', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0; /* body padding 제거, .card-list에 padding 적용 */
+            overflow-x: hidden; /* 가로 스크롤 방지 */
+        }
+        
+        /* 팝업 오버레이 스타일 */
+        .intro-overlay {
+            position: fixed; /* 화면에 고정 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* 배경색: 기존 배경색 f4f4f9에 불투명도 95% 적용 */
+            background-color: rgba(244, 244, 249, 0.95); 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* 최상단에 위치 */
+            opacity: 1;
+            transition: opacity 0.5s; /* 부드럽게 사라지도록 트랜지션 추가 */
+            text-align: center;
+        }
+
+        .intro-overlay.hidden {
+            opacity: 0;
+            pointer-events: none; /* 숨겨진 후 클릭 이벤트 방지 */
+        }
+
+        .popup-content {
+            padding: 40px;
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            max-width: 80%;
+            color: #5f5753; /* 글자색은 통일 */
+        }
+        
+        .popup-content h2 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .popup-content p {
+            font-size: 1.1em;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        
+        /* 팝업 내부 작은 글씨 스타일 */
+        .popup-content .note {
+            display: block; /* 줄 바꿈이 되도록 블록 요소로 만듭니다. */
+            font-size: 0.8em; /* 본문(1.1em)보다 작게 표시 */
+            color: #7d736d; /* 기존 색상보다 약간 연하게 처리 */
+            margin-top: 10px;
+        }
+
+        /* 둘러보기 버튼 스타일 */
+        #close-overlay-btn {
+            padding: 10px 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            background-color: transparent; /* 배경색 투명 */
+            color: #5f5753; /* 글자색 통일 */
+            border: 2px solid #5f5753; /* 테두리 색상 통일 */
+            border-radius: 5px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #close-overlay-btn:hover {
+            background-color: #5f5753; /* 마우스 오버 시 반전 */
+            color: #fff;
+        }
+
+        /* 큰 제목 스타일 (기존 스타일 유지) */
+        h1 {
+            color: #5f5753; 
+            text-align: center;
+            margin: 20px auto 40px auto; /* 상단 여백 조정 */
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 15px;
+            font-size: 2.5em; 
+            max-width: 1300px;
+            padding-left: 20px;
+            padding-right: 20px;
+            box-sizing: border-box;
+        }
+        
+        /* 모바일 최적화: 화면 너비 600px 이하일 때 제목 크기 조정 및 레이아웃 변경 */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 30px;
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            .card-list {
+                grid-template-columns: 1fr; 
+                gap: 20px;
+            }
+        }
+
+        /* 카드뉴스 목록을 담는 컨테이너 스타일 */
+        .card-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 0 20px; /* 좌우 패딩 추가 */
+        }
+        
+        /* 개별 카드 스타일 */
+        .card-item {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #e0e0e0;
+            cursor: pointer; 
+        }
+
+        .card-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-preview {
+            position: relative;
+            width: 100%;
+            padding-top: 100%;
+            flex-grow: 1;
+        }
+
+        .card-preview iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .card-author {
+            padding: 15px;
+            background-color: #f0f4f9;
+            text-align: center;
+            font-size: 1em;
+            color: #5f5753; 
+            font-weight: bold;
+            border-top: 1px solid #cfd8dc;
+        }
+
+    </style>
+</head>
+<body>
+    
+    <div id="intro-overlay" class="intro-overlay">
+        <div class="popup-content">
+            <h2>페이지 안내</h2>
+            <p>
+                10월 9일, 한글날을 맞아<br>
+                5-1 학생들이 만든<br>
+                카드뉴스를 모은 페이지입니다.<br>
+                <br>
+                <span class="note">*체험학습 등으로 결석한 학생은 제외됩니다<br>
+                <br>*페이지는 한 달(~11/9)간 게시됩니다.
+                </span>
+            </p>
+            <button id="close-overlay-btn">둘러보기</button>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = document.getElementById('intro-overlay');
+            const closeBtn = document.getElementById('close-overlay-btn');
+            
+            // 팝업 닫기 버튼 클릭 이벤트
+            closeBtn.addEventListener('click', () => {
+                overlay.classList.add('hidden'); // 팝업 숨기기
+                
+                // 팝업이 사라진 후, 배경 스크롤을 다시 허용
+                document.body.style.overflow = '';
+            });
+
+            // 페이지 로딩 시, 팝업이 나타나는 동안 배경 스크롤 방지
+            document.body.style.overflow = 'hidden';
+            
+            // iframe 클릭 시 원본 링크로 이동하는 기존 로직은 유지
+            document.querySelectorAll('.card-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    // 팝업이 열려있으면 클릭 방지
+                    if (overlay.style.opacity === '1' || !overlay.classList.contains('hidden')) {
+                        return; 
+                    }
+                    // iframe 태그가 실제로 로딩되었는지 확인 후 src 가져오기
+                    const iframe = item.querySelector('iframe');
+                    if (iframe && iframe.src) {
+                        window.open(iframe.src, '_blank'); // 새 탭에서 열기
+                    }
+                });
+            });
+        });
+    </script>
+    
+    <h1>한글날 맞이 카드뉴스 모음</h1>
+
+    <div class="card-list">
+        
+        <div class="card-item">
+            <div class="card-preview">
+                <iframe src="https://www.canva.com/design/DAHXYpESL_c/QzYigtNl4bPy7SbH72OKwA/view?embed" allowfullscreen></iframe>
+            </div>
+            <div class="card-author">
+                곽하늘, 김태은
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="card-preview">
+                <iframe src="https://www.canva.com/design/DAHXYk6I0yA/ltY6uBLrXnOPmTVrKo735Q/view?embed" loading="lazy" allowfullscreen></iframe>
+            </div>
+            <div class="card-author">
+                김하린, 송서유, 한수빈
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="card-preview">
+                <iframe src="https://www.canva.com/design/DAHXYuwRMKQ/8BrKMYW6vN08JmkXVKQ-Dg/view?embed" loading="lazy" allowfullscreen></iframe>
+            </div>
+            <div class="card-author">
+                김해솔, 원지현
+            </div>
+        </div>
+        
+        <div class="card-item">
+            <div class="card-preview">
+                <iframe src="https://www.canva.com/design/DAHXYhtv4k0/fk3e0FNycbmd6hCzq3FZtQ/view?embed" loading="lazy" allowfullscreen></iframe>
+            </div>
+            <div class="card-author">
+                박규환, 윤기현
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="card-preview">
+                <iframe src="https://www.canva.com/design/DAHXYqYZcB4/IbS6ndaN9tc90Z6ZorZxjQ/view?embed" loading="lazy" allowfullscreen></iframe>
+            </div>
+            <div class="card-author">
+                백송이
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="card-preview">
+                <iframe src="https://www.canva.com/design/DAHXYu2JJms/ACgTQfbLz7CN4oShoyNzMw/view?embed" loading="lazy" allowfullscreen></iframe>
+            </div>
+            <div class="card-author">
+                서유찬
+            </div>
+        </div>
+
+        <div class="card-item">
+            <div class="card-preview">
+                <iframe src="https://www.canva.com/design/DAHXZCmVtIQ/2KH2VyORQA87w0LlwCbpjw/view?embed" loading="lazy" allowfullscreen></iframe>
+            </div>
+            <div class="card-author">
+                심수원, 한대연, 한지완
+            </div>
+        </div>
+        
+    </div>
+
+</body>
+</html>
